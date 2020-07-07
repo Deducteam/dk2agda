@@ -14,7 +14,10 @@ do
             fi
             ;;
         d) indir="$OPTARG" ;;
-        o) outdir="$OPTARG" ;; 
+        o) outdir="$OPTARG"
+           [[ ! -e $outdir ]] && mkdir $outdir
+           [[ ! -d $outdir ]] && echo "Output is not a directory" && exit 1
+           ;;
         h) echo "$usage"
            exit 0
            ;;

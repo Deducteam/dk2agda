@@ -1,3 +1,5 @@
+test_run: dk2agda
+	./$< test_files/bool.lp out
 
 .PHONY: dk2agda
 dk2agda: dk2agda.ml
