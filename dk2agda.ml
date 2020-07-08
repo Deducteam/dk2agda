@@ -8,11 +8,14 @@ let rec list_to_string = fun sep -> fun l ->
   | [x]   -> x
   | x::xs -> x ^ sep ^ list_to_string sep xs
 
+let print_module = fun oc -> fun path ->
+  Printf.fprintf oc "module %s where\n" (List.hd (List.rev path))
+
 let print_deps = fun oc -> fun map ->
   Files.PathMap.iter (fun path _ -> Printf.fprintf oc "open import %s\n" (list_to_string "." path)) !map
 
-(** this is a stub *)
 let export : out_channel -> Sign.t -> unit = fun oc -> fun s ->
+  print_module oc s.sign_path;
   print_deps oc s.sign_deps
 
 (** takes 2 arguments : a file and a output directory *)
