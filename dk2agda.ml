@@ -28,19 +28,23 @@ let rec term_to_string = fun term ->
   | Abst(a,t) -> 
       let (x,t) = Bindlib.unbind t in 
       Printf.sprintf "\\(%s : %s) -> %s" (Bindlib.name_of x) (term_to_string a) (term_to_string t)
-      (** \ (x : a) -> t*)
+      (** \(x : a) -> t*)
   | Appl(l,r) -> Printf.sprintf "(%s) (%s)" (term_to_string l) (term_to_string r)
-  | Meta(_,_) -> ""
-  | Patt(_,_,_) -> ""
-  | TEnv(_,_) -> ""
-  | Wild -> "_"
-  | TRef(_) -> ""
-  | LLet(_,_,_) -> ""
-
+      (** (l) (r) *)
+  | Wild -> "_" 
+  | LLet(_,t,u) -> term_to_string (Bindlib.subst u t)
+  | Meta(_,_) 
+      (** nope *)
+  | Patt(_,_,_) 
+      (** only in lhs *)
+  | TEnv(_,_) 
+      (** only in rhs *)
+  | TRef(_) -> "" 
+      (** only for surface matching *)
 
 let symbol_to_string = fun symbol ->
-  Printf.sprintf "%s : %s\n" symbol.sym_name (term_to_string !(symbol.sym_type))
-
+  let stype = Printf.sprintf "%s : %s\n" symbol.sym_name (term_to_string !(symbol.sym_type)) in
+  stype
 let print_symbols = fun oc -> fun map ->
   Extra.StrMap.iter (fun _ (sym,_) -> Printf.fprintf oc "%s\n" (symbol_to_string sym)) !map
 
