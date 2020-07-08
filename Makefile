@@ -1,5 +1,5 @@
 test_run: dk2agda
-	./$< test_files/bool.lp out
+	./$< test_files/main.lp out
 
 .PHONY: dk2agda
 dk2agda: dk2agda.ml
