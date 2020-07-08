@@ -1,20 +1,30 @@
 open Core
 open Core.Terms
+open Core.Pos
 open Filename
 open Timed
 
+(** Some utility functions : *)
 let rec list_to_string = fun sep -> fun l ->
   match l with 
   | []    -> ""
   | [x]   -> x
   | x::xs -> x ^ sep ^ list_to_string sep xs
 
+(** actual printing functions *)
+
+(** prints "module ... where" directives for the current file *)
+(** /!\ doesn't match filename, either remove .lp/.dk from name or add it here *)
 let print_module = fun oc -> fun path ->
   Printf.fprintf oc "module %s where\n" (List.hd (List.rev path))
 
+(** prints "open import" directives for dependencies *)
+(** /!\ The first dependencies is .unif_rule *)
 let print_deps = fun oc -> fun map ->
   Files.PathMap.iter (fun path _ -> Printf.fprintf oc "open import %s\n" (list_to_string "." path)) !map
 
+(** make a string out of term and returns it *)
+(** /!\ not sure for LLet since I could use "let ... in ..." *)
 let rec term_to_string = fun term ->
   match term with
   | Vari(var) -> Bindlib.name_of var 
@@ -42,18 +52,35 @@ let rec term_to_string = fun term ->
   | TRef(_) -> "" 
       (** only for surface matching *)
 
+(** returns a string from symbol *)
 let symbol_to_string = fun symbol ->
   let stype = Printf.sprintf "%s : %s\n" symbol.sym_name (term_to_string !(symbol.sym_type)) in
-  stype
-let print_symbols = fun oc -> fun map ->
-  Extra.StrMap.iter (fun _ (sym,_) -> Printf.fprintf oc "%s\n" (symbol_to_string sym)) !map
+  let sdef =
+    match !(symbol.sym_def) with
+    | Some(t) -> Printf.sprintf "%s = %s\n" symbol.sym_name (term_to_string t)
+    | None -> ""
+  in
+  stype ^ sdef
 
+(** Print symbols sorted by their line_number *)
+let print_symbols : out_channel -> (sym * popt) Extra.StrMap.t Timed.ref -> unit = fun oc -> fun map ->
+  let get_pos = fun opt_pos ->
+    match opt_pos with
+    | Some(p) -> (Lazy.force p).start_line
+    | None -> 0
+  in
+  let list = Extra.StrMap.fold (fun _ (s,p) acc -> (s,p) :: acc) !map [] in
+  let syms = List.sort (fun e1 e2 -> compare (get_pos (snd e1)) (get_pos (snd e2))) list in
+  List.iter (fun (sym,_) -> Printf.fprintf oc "%s\n" (symbol_to_string sym)) syms
+
+(** main export function, print differents parts of the file to oc *)
 let export : out_channel -> Sign.t -> unit = fun oc -> fun s ->
   print_module oc s.sign_path;
   print_deps oc s.sign_deps;
-  print_symbols oc s.sign_symbols
+  print_symbols oc s.sign_symbols (** when printing symbols, be careful of Pos.popt (for scope) *)
 
-(** takes 2 arguments : a file and a output directory *)
+(** Entry point : 
+    takes 2 arguments : a file and a output directory *)
 let _ = 
   let nbArg = Array.length Sys.argv - 1 in
   if nbArg != 2 
