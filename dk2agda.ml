@@ -52,6 +52,9 @@ let rec term_to_string = fun term ->
   | TRef(_) -> "" 
       (** only for surface matching *)
 
+let lhs_to_string = fun lhs ->
+  list_to_string " " (List.map (term_to_string) lhs)
+
 (** returns a string from symbol *)
 let symbol_to_string = fun symbol ->
   let stype = Printf.sprintf "%s : %s\n" symbol.sym_name (term_to_string !(symbol.sym_type)) in
@@ -60,7 +63,8 @@ let symbol_to_string = fun symbol ->
     | Some(t) -> Printf.sprintf "%s = %s\n" symbol.sym_name (term_to_string t)
     | None -> ""
   in
-  stype ^ sdef
+  let srules = List.fold_left (fun acc e -> acc ^ (Printf.sprintf "%s %s = %s\n" symbol.sym_name (lhs_to_string e.lhs) ("rhs"))) "" !(symbol.sym_rules) in
+  stype ^ sdef ^ srules
 
 (** Print symbols sorted by their line_number *)
 let print_symbols : out_channel -> (sym * popt) Extra.StrMap.t Timed.ref -> unit = fun oc -> fun map ->
