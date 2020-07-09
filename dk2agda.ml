@@ -8,8 +8,7 @@ open Core.Extra
 open Filename
 open Timed
 
-(** Some utility functions : *)
-let rec list_to_string = fun sep -> fun l ->
+let rec list_to_string : string -> string list -> string = fun sep -> fun l ->
   match l with 
   | []    -> ""
   | [x]   -> x
@@ -36,12 +35,13 @@ let rec term_to_string : term -> string = fun term ->
   | LLet(_,t,u) -> term_to_string (Bindlib.subst u t)
   | Patt(_,n,_) ->
           Printf.sprintf "%s" n
+  (** removed by unfold *)
   | Meta(_,_)
   | TEnv(_,_)
   | TRef(_) -> "" 
 
 let lhs_to_string : term list -> string = fun lhs ->
-  list_to_string " " (List.map (term_to_string) lhs)
+  list_to_string " " (List.map term_to_string lhs)
 
 (** returns a string from symbol *)
 let symbol_to_string : sym -> string = fun symbol ->
