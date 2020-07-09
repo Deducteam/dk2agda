@@ -1,0 +1,13 @@
+typ : Type.
+
+inj eta : typ -> Type.
+
+prod : A : typ -> (eta A -> typ) -> typ.
+
+lam : A : typ -> B : (eta A -> typ) -> (x:eta A -> eta (B x)) -> eta (prod A B).
+
+def app : A : typ -> B : (eta A -> typ) -> eta (prod A B) -> x: eta A -> eta (B x).
+
+[f,a] app _ _ (lam _ _ f) a --> f a.
+
+[A,f] eta (prod A f) --> a:eta A -> eta (f a).

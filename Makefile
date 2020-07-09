@@ -1,6 +1,5 @@
 test_run: dk2agda
-	./$< test_files/nat.lp out
-	./$< test_files/main.lp out
+	./dk2agda.sh -d test_files/tests/OK -o out
 
 .PHONY: dk2agda
 dk2agda: dk2agda.ml
