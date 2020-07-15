@@ -60,8 +60,13 @@ let rec term_to_str : term -> string = fun term ->
   | Kind -> "Set1"
   | Symb(s) -> sym_get_name s
   | Prod(a,b) -> 
-      let (x,b) = Bindlib.unbind b in 
-      ps "(%s : %s) -> %s" (san_name_of x) (term_to_str a) (term_to_str b)
+      let (x,b) = Bindlib.unbind b in
+      let name = san_name_of x in
+      if name = "_"
+      then
+        ps "(%s -> %s)" (term_to_str a) (term_to_str b)
+      else
+        ps "(%s : %s) -> %s" name (term_to_str a) (term_to_str b)
   | Abst(a,t) -> 
       let (x,t) = Bindlib.unbind t in 
       ps "\\(%s : %s) -> %s" (san_name_of x) (term_to_str a) (term_to_str t)
@@ -81,6 +86,13 @@ let rec term_to_str : term -> string = fun term ->
 let lhs_to_str : term list -> string = fun lhs ->
   list_to_str " " (List.map term_to_str lhs)
 
+let is_type : term -> bool = fun t ->
+    let str = term_to_str t in
+    let l = String.length str in
+    if l >= 3 then
+      String.sub str (l - 3) 3 = "Set"
+    else false
+
 (** /!\ Problem with "data %s where\n" *)
 (** I think that what's actually happening is that constructors for data are not
     writen right atfter. So I need to bring them all up, right after the 
@@ -88,7 +100,11 @@ let lhs_to_str : term list -> string = fun lhs ->
 let symbol_type_to_str : sym -> string = fun s -> 
   match (!(s.sym_def),!(s.sym_rules)) with
   | (None,[]) -> (* no def or rule *)
-    ps "postulate %s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
+      (*if is_type !(s.sym_type) 
+      then
+        ps "data %s : %s where\n" (sym_get_name s) (term_to_str !(s.sym_type))
+      else*)
+        ps "%s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
   | (Some(_),_)
   | (None,_) -> 
       ps "%s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
@@ -120,11 +136,13 @@ let print_symbols : out_channel -> (sym * popt) StrMap.t ref -> unit =
     let l = StrMap.fold (fun _ (s,p) acc -> (s,p) :: acc) !map [] in
     List.sort (fun e1 e2 -> compare (get_pos (snd e1)) (get_pos (snd e2))) l
   in
-  List.iter (fun (sym,_) -> 
+  List.iter (fun (sym,_) ->
     let stype = symbol_type_to_str sym in
+    Printf.fprintf oc "%s" stype) sorted_symbols;
+  List.iter (fun (sym,_) -> 
     let sdefi = symbol_defi_to_str sym in
     let srule = symbol_rule_to_str sym in
-    Printf.fprintf oc "%s%s%s" stype sdefi srule) sorted_symbols
+    Printf.fprintf oc "%s%s" sdefi srule) sorted_symbols
 
 (** prints "open import" directives for dependencies *)
 (** /!\ Dependency path are relative to root of the library *)
@@ -140,6 +158,7 @@ let print_module : out_channel -> Path.t -> unit = fun oc -> fun path ->
 
 (** main export function, print differents parts of the file to oc *)
 let export : out_channel -> Sign.t -> unit = fun oc -> fun s ->
+  Printf.fprintf oc "{-# OPTIONS -W noMissingDefinitions #-}\n";
   print_module oc s.sign_path;
   print_deps oc s.sign_deps;
   print_symbols oc s.sign_symbols
