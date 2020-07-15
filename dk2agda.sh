@@ -44,5 +44,5 @@ fi
 
 [[ -n ${indir} ]] && find ${indir} \( -name "*.dk" -o -name "*.lp" \) -exec ./dk2agda {} ${outdir:-"out"} \; && exit 0
 
-[[ -n ${infile} ]] && echo dk2agda ${infile} ${outdir:-"out"} && exit 0
+[[ -n ${infile} ]] && ./dk2agda ${infile} ${outdir:-"out"} && exit 0
 
