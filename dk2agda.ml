@@ -1,8 +1,8 @@
 (** Things to do sorted by importance :
     Won't work if not done :
-    * resolve the data..where problem
+    * resolve the lhs problem
     * resolve the module problem 
-    * add support for everything in Sign.t ?
+    * add support for everything in Sign.t ? (at least op ?)
     Will work if not done :
     * add more explicit comments and types (cf comments in lambdapi)
     * beautify the code (right now it's a bit messy since I still have issues) 
@@ -38,7 +38,7 @@ let sanitize id =
       "dk^"^id
     else
       let regexp = Str.regexp "_" in
-      Str.global_replace regexp "::" id
+      Str.global_replace regexp "^" id
 
 let rec list_to_str : string -> string list -> string = fun sep -> fun l ->
   match l with 
@@ -49,9 +49,20 @@ let rec list_to_str : string -> string list -> string = fun sep -> fun l ->
 let sym_get_name = fun s -> sanitize s.sym_name
 let ps = Printf.sprintf
 
+let term_of_rhs : rule -> term = fun r ->
+  let fn i x =
+    let (name, arity) = (Bindlib.name_of x, r.arities.(i)) in
+    let make_var i = Bindlib.new_var mkfree (Printf.sprintf "x%i" i) in
+    let vars = Array.init arity make_var in
+    let p = _Patt (Some(i)) (sanitize name) (Array.map Bindlib.box_var vars) in
+    TE_Some(Bindlib.unbox (Bindlib.bind_mvar vars p))
+  in
+  Bindlib.msubst r.rhs (Array.mapi fn r.vars)
+
 (** actual printing functions *)
 
 (** make a string out of term and returns it *)
+(** /!\ rhs Patt var don't have a leading 'v' *)
 let rec term_to_str : term -> string = fun term ->
   let san_name_of = fun x -> sanitize (Bindlib.name_of x) in
   match unfold term with
@@ -74,10 +85,11 @@ let rec term_to_str : term -> string = fun term ->
   | Wild -> "_" 
   | LLet(_,t,u) -> term_to_str (Bindlib.subst u t)
   | Patt(_,n,_) ->
-          (* /!\ This is a hack to remove the leading v *)
+          sanitize n
+          (* /!\ This is a hack to remove the leading v 
           let w_v = (sanitize n) in
           let wo_v = String.sub w_v 1 ((String.length w_v) - 1) in
-          ps "%s" (if w_v.[0] = 'v' then wo_v else w_v)
+          ps "%s" (if w_v.[0] = 'v' then wo_v else w_v) *)
   (** removed by unfold *)
   | Meta(_,_)
   | TEnv(_,_)
@@ -86,27 +98,11 @@ let rec term_to_str : term -> string = fun term ->
 let lhs_to_str : term list -> string = fun lhs ->
   list_to_str " " (List.map term_to_str lhs)
 
-let is_type : term -> bool = fun t ->
-    let str = term_to_str t in
-    let l = String.length str in
-    if l >= 3 then
-      String.sub str (l - 3) 3 = "Set"
-    else false
-
-(** /!\ Problem with "data %s where\n" *)
-(** I think that what's actually happening is that constructors for data are not
-    writen right atfter. So I need to bring them all up, right after the 
-    data..where clause in the symbol Map (well in the List done afterwards) *)
 let symbol_type_to_str : sym -> string = fun s -> 
-  match (!(s.sym_def),!(s.sym_rules)) with
-  | (None,[]) -> (* no def or rule *)
-      (*if is_type !(s.sym_type) 
-      then
-        ps "data %s : %s where\n" (sym_get_name s) (term_to_str !(s.sym_type))
-      else*)
-        ps "%s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
-  | (Some(_),_)
-  | (None,_) -> 
+  match s.sym_prop with
+  | Const -> 
+      ps "postulate %s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
+  | _ -> 
       ps "%s : %s\n" (sym_get_name s) (term_to_str !(s.sym_type))
 
 let symbol_defi_to_str : sym -> string = fun s ->
@@ -119,12 +115,12 @@ let symbol_rule_to_str : sym -> string = fun s ->
     let name = sym_get_name s in
     let lhs = lhs_to_str e.lhs in
     let rhs = term_to_str (term_of_rhs e) in
-    acc ^ (ps "%s %s = %s\n" name lhs rhs) in
+    acc ^ (ps "%s %s = %s\n" name lhs rhs) 
+  in
   List.fold_left fn "" !(s.sym_rules) 
 
 (** Print symbols sorted by their line_number *)
-(** /!\ I still need to make symbols representing data (such as Nat) to use 'data .. where\n' syntax *)
-(** I separated definition, rule, and type printing to be able to expreiment *)
+(** I separated definition, rule, and type printing to be able to experiment *)
 let print_symbols : out_channel -> (sym * popt) StrMap.t ref -> unit = 
   fun oc -> fun map ->
   let get_pos = fun opt_pos ->
@@ -154,7 +150,7 @@ let print_deps : out_channel -> (string * rule) list PathMap.t ref -> unit =
 
 (** prints "module ... where" directives for the current file *)
 let print_module : out_channel -> Path.t -> unit = fun oc -> fun path ->
-  Printf.fprintf oc "module %s where\n" (sanitize (List.hd (List.rev path)))
+  Printf.fprintf oc "module %s where\n" (List.hd (List.rev path))
 
 (** main export function, print differents parts of the file to oc *)
 let export : out_channel -> Sign.t -> unit = fun oc -> fun s ->
@@ -171,7 +167,7 @@ let _ =
   then 
     failwith "Usage : dk2agda [infile_path] [outdir]"
   else
-    let filename = sanitize (remove_extension (basename Sys.argv.(1))) in
+    let filename = remove_extension (basename Sys.argv.(1)) in
     let oc = open_out (Sys.argv.(2) ^ dir_sep ^ filename ^ ".agda") in
     let _ = Sys.chdir (dirname Sys.argv.(1)) in
     let _ = init_lib_root () in
