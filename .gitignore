@@ -30,4 +30,6 @@ _opam/
 
 # Agda generated files
 *.agda
+*.agdai
+*.agda.vim
 !sttfa.agda

@@ -1,5 +1,5 @@
 test_run: dk2agda
-	./dk2agda.sh -d test_files/tests/OK/ -o out
+	./dk2agda.sh -d test_files/tests/OK -o out
 
 .PHONY: dk2agda
 dk2agda: dk2agda.ml
