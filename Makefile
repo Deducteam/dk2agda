@@ -9,7 +9,7 @@ bench: test_run
 	ls out/*.agda | wc -l
 
 dk2agda: dk2agda.ml
-	ocamlfind ocamlopt -linkpkg -package lambdapi.core -package str $< -o $@
+	ocamlfind ocamlopt -linkpkg -package lambdapi.pure -package lambdapi.core -package str $< -o $@
 
 .PHONY: clean
 clean:

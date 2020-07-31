@@ -16,6 +16,8 @@ open Core.Pos
 open Core.Basics
 open Core.Files
 open Core.Extra
+open Pure
+(* open Config *)
 
 open Filename
 open Timed
@@ -92,7 +94,7 @@ let rec term_to_str : term -> string = fun term ->
   | _ -> "" 
 
 (* WIP : replaces Patt by fresh metas.
-   Typing.infer_constr calls Sign.current_sign.() at some point and fails.
+   Typing.infer_constr calls Sign.current_sign.() at some point and fails.*)
 
 let solve_lhs : term list -> term list = fun lhs ->
   let rec lhs_subst = fun e ->
@@ -114,14 +116,17 @@ let solve_lhs : term list -> term list = fun lhs ->
   in
   let _ = List.map (fun e -> Typing.infer_constr [] (lhs_subst e)) lhs in
   lhs (* effets de bord dans infer_constr *) (* appel a  *)
-*)
 
 (** [lhs_to_str lhs] transforms [lhs] to string *)
 let lhs_to_str : term -> string = fun lhs ->
-  (*let nlhs = solve_lhs lhs in*)
-  (*list_to_str " " (List.map term_to_str lhs)*)
   term_to_str lhs
-(** {b NOTE} that this function has type term -> string but whould have 
+
+(** [lhs_to_str2 lhs] transforms [lhs] to string. This one uses solve_lhs. *)
+let lhs_to_str2 : term list -> string = fun lhs ->
+  let nlhs = solve_lhs lhs in
+  list_to_str " " (List.map term_to_str nlhs)
+
+(* {b NOTE} that this function has type term -> string but whould have 
     term list -> string when using rule.lhs . Here it's using the 
     lhs_typing obtained from sr.ml *)
 
@@ -181,12 +186,13 @@ let symbol_rule_to_str : sym -> string = fun s ->
   let fn = fun acc e ->
     let name = sym_get_name s in
     let lhs = lhs_to_str e.lhs_typing in
-    (*let lhs = lhs_to_str e.lhs in (* when solve_lhs will work *)*)
+    (*let lhs = lhs_to_str2 e.lhs in (* when solve_lhs will work *)*)
     let rhs = term_to_str (term_of_rhs e) in
     let lhs_vars = lhs_vars_to_str lhs in
     let rule_name = ps "rule^%s^%d" name !uid in
     let _ = incr uid in 
-    let l1 =  (ps "%s : %s %s ≡ (%s)\n" rule_name lhs_vars lhs rhs) in
+    let l1 =  (ps "%s : %s %s ≡ (%s)\n" rule_name lhs_vars lhs rhs) in 
+    (* let l1 =  (ps "%s : %s %s %s ≡ (%s)\n" rule_name lhs_vars name lhs rhs) in*)
     acc ^ l1 ^ (ps "{-# REWRITE %s #-}\n" rule_name) 
   in
   List.fold_left fn "" !(s.sym_rules) 
@@ -254,7 +260,9 @@ let _ =
   else
     let filename = sanitize (remove_extension (basename Sys.argv.(1))) in
     let oc = open_out (Sys.argv.(2) ^ dir_sep ^ filename ^ ".agda") in
-    let _ = Sys.chdir (dirname Sys.argv.(1)) in
-    let _ = init_lib_root () in
+    Sys.chdir (dirname Sys.argv.(1));
+    (* Config.init Config.full; *)
+    Files.init_lib_root ();
+    Pure.set_initial_time ();
     let sign = Compile.compile_file (basename Sys.argv.(1)) in
     export oc sign 
